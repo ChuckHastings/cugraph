@@ -70,6 +70,8 @@ class Tests_Louvain : public ::testing::TestWithParam<Louvain_Usecase> {
 
     bool directed{false};
 
+    std::cout << "legacy::louvain, filename = " << configuration.graph_file_full_path_ << std::endl;
+
     auto graph = cugraph::test::generate_graph_csr_from_mm<vertex_t, edge_t, weight_t>(
       directed, configuration.graph_file_full_path_);
     auto graph_view = graph->view();
@@ -100,6 +102,8 @@ class Tests_Louvain : public ::testing::TestWithParam<Louvain_Usecase> {
   void run_current_test(Louvain_Usecase const& configuration)
   {
     raft::handle_t handle{};
+
+    std::cout << "experimental::louvain, filename = " << configuration.graph_file_full_path_ << std::endl;
 
     cugraph::experimental::graph_t<vertex_t, edge_t, weight_t, false, false> graph(handle);
     std::tie(graph, std::ignore) =
@@ -316,6 +320,7 @@ TEST_P(Tests_Louvain, CheckInt32Int32FloatFloat)
 INSTANTIATE_TEST_SUITE_P(
   simple_test,
   Tests_Louvain,
-  ::testing::Values(Louvain_Usecase("test/datasets/karate.mtx", true, 3, 0.408695)));
+  ::testing::Values(Louvain_Usecase("test/datasets/karate.mtx", true, 3, 0.408695),
+                    Louvain_Usecase("test/datasets/hollywood.mtx", true, 10, 0.75522721)));
 
 CUGRAPH_TEST_PROGRAM_MAIN()
