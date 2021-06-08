@@ -374,6 +374,10 @@ ConfigureTest(EXPERIMENTAL_SSSP_TEST experimental/sssp_test.cpp)
 ConfigureTest(EXPERIMENTAL_PAGERANK_TEST experimental/pagerank_test.cpp)
 
 ###################################################################################################
+# - Experimental Renumbering tests -------------------------------------------------------------------
+ConfigureTest(EXPERIMENTAL_RENUMBERING_TEST experimental/renumbering_test.cpp)
+
+###################################################################################################
 # - Experimental KATZ_CENTRALITY tests ------------------------------------------------------------
 ConfigureTest(EXPERIMENTAL_KATZ_CENTRALITY_TEST experimental/katz_centrality_test.cpp)
 
