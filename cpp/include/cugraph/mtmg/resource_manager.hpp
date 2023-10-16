@@ -28,7 +28,9 @@
 #include <rmm/mr/device/owning_wrapper.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
+#if 0
 #include <execution>
+#endif
 
 namespace cugraph {
 namespace mtmg {
