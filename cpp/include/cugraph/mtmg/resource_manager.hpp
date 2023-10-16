@@ -70,6 +70,8 @@ class resource_manager_t {
   {
     std::lock_guard<std::mutex> lock(lock_);
 
+    CUGRAPH_EXPECTS(remote_rank_set_.find(rank) == remote_rank_set_.end(),
+                    "cannot register same rank as local and remote");
     CUGRAPH_EXPECTS(local_rank_map_.find(rank) == local_rank_map_.end(),
                     "cannot register same rank multiple times");
 
@@ -88,6 +90,9 @@ class resource_manager_t {
     //
     // There is a deprecated environment variable: NCCL_LAUNCH_MODE=GROUP
     // which should temporarily work around this problem.
+    //
+    // Further NOTE: multi-node requires the NCCL_LAUNCH_MODE=GROUP feature
+    // to be enabled even with the pool memory resource.
     //
     // Ultimately there should be some RMM parameters passed into this function
     // (or the constructor of the object) to configure this behavior
@@ -109,6 +114,23 @@ class resource_manager_t {
   }
 
   /**
+   * @brief add a remote GPU to the resource manager.
+   *
+   * @param rank             The rank to assign to the remote GPU
+   */
+  void register_remote_gpu(int rank)
+  {
+    std::lock_guard<std::mutex> lock(lock_);
+
+    CUGRAPH_EXPECTS(local_rank_map_.find(rank) == local_rank_map_.end(),
+                    "cannot register same rank as local and remote");
+    CUGRAPH_EXPECTS(remote_rank_set_.find(rank) == remote_rank_set_.end(),
+                    "cannot register same rank multiple times");
+
+    remote_rank_set_.insert(rank);
+  }
+
+  /**
    * @brief Create an instance using a subset of the registered resources
    *
    * The selected set of resources will be configured as an instance manager.
@@ -127,29 +149,40 @@ class resource_manager_t {
   std::unique_ptr<instance_manager_t> create_instance_manager(
     std::vector<int> ranks_to_include, ncclUniqueId instance_manager_id) const
   {
-    std::for_each(
-      ranks_to_include.begin(), ranks_to_include.end(), [local_ranks = local_rank_map_](int rank) {
-        CUGRAPH_EXPECTS(local_ranks.find(rank) != local_ranks.end(),
-                        "requesting inclusion of an invalid rank");
-      });
+    std::vector<int> local_ranks_to_include;
+
+    std::for_each(ranks_to_include.begin(),
+                  ranks_to_include.end(),
+                  [&local_ranks  = local_rank_map_,
+                   &remote_ranks = remote_rank_set_,
+                   &local_ranks_to_include](int rank) {
+                    if (local_ranks.find(rank) == local_ranks.end()) {
+                      CUGRAPH_EXPECTS(remote_ranks.find(rank) != remote_ranks.end(),
+                                      "requesting inclusion of an invalid rank");
+                    } else {
+                      local_ranks_to_include.push_back(rank);
+                    }
+                  });
 
     std::vector<std::unique_ptr<ncclComm_t>> nccl_comms{};
     std::vector<std::unique_ptr<raft::handle_t>> handles{};
     std::vector<rmm::cuda_device_id> device_ids{};
 
-    nccl_comms.reserve(ranks_to_include.size());
-    handles.reserve(ranks_to_include.size());
-    device_ids.reserve(ranks_to_include.size());
+    nccl_comms.reserve(local_ranks_to_include.size());
+    handles.reserve(local_ranks_to_include.size());
+    device_ids.reserve(local_ranks_to_include.size());
 
-    // FIXME: not quite right for multi-node
     auto gpu_row_comm_size = static_cast<int>(sqrt(static_cast<double>(ranks_to_include.size())));
     while (ranks_to_include.size() % gpu_row_comm_size != 0) {
       --gpu_row_comm_size;
     }
 
-    // FIXME: not quite right for multi-node
-    for (size_t i = 0; i < ranks_to_include.size(); ++i) {
-      int rank = ranks_to_include[i];
+    int current_device{};
+    RAFT_CUDA_TRY(cudaGetDevice(&current_device));
+    NCCL_TRY(ncclGroupStart());
+
+    for (size_t i = 0; i < local_ranks_to_include.size(); ++i) {
+      int rank = local_ranks_to_include[i];
       auto pos = local_rank_map_.find(rank);
       RAFT_CUDA_TRY(cudaSetDevice(pos->second.value()));
 
@@ -159,26 +192,28 @@ class resource_manager_t {
       handles.push_back(
         std::make_unique<raft::handle_t>(tmp_handle, per_device_rmm_resources_.find(rank)->second));
       device_ids.push_back(pos->second);
+
+      NCCL_TRY(
+        ncclCommInitRank(nccl_comms[i].get(), ranks_to_include.size(), instance_manager_id, rank));
+      raft::comms::build_comms_nccl_only(
+        handles[i].get(), *nccl_comms[i], ranks_to_include.size(), rank);
     }
+    NCCL_TRY(ncclGroupEnd());
+    RAFT_CUDA_TRY(cudaSetDevice(current_device));
 
     std::vector<std::thread> running_threads;
 
-    for (size_t i = 0; i < ranks_to_include.size(); ++i) {
+    for (size_t i = 0; i < local_ranks_to_include.size(); ++i) {
       running_threads.emplace_back([instance_manager_id,
                                     idx = i,
                                     gpu_row_comm_size,
                                     comm_size = ranks_to_include.size(),
-                                    &ranks_to_include,
-                                    &local_rank_map = local_rank_map_,
+                                    &local_ranks_to_include,
+                                    &device_ids,
                                     &nccl_comms,
                                     &handles]() {
-        int rank = ranks_to_include[idx];
-        auto pos = local_rank_map.find(rank);
-        RAFT_CUDA_TRY(cudaSetDevice(pos->second.value()));
-
-        NCCL_TRY(ncclCommInitRank(nccl_comms[idx].get(), comm_size, instance_manager_id, rank));
-
-        raft::comms::build_comms_nccl_only(handles[idx].get(), *nccl_comms[idx], comm_size, rank);
+        int rank = local_ranks_to_include[idx];
+        RAFT_CUDA_TRY(cudaSetDevice(device_ids[idx].value()));
 
         cugraph::partition_manager::init_subcomm(*handles[idx], gpu_row_comm_size);
       });
@@ -186,9 +221,8 @@ class resource_manager_t {
 
     std::for_each(running_threads.begin(), running_threads.end(), [](auto& t) { t.join(); });
 
-    // FIXME: Update for multi-node
     return std::make_unique<instance_manager_t>(
-      std::move(handles), std::move(nccl_comms), std::move(device_ids), ranks_to_include.size());
+      std::move(handles), std::move(nccl_comms), std::move(device_ids));
   }
 
   /**
@@ -200,24 +234,30 @@ class resource_manager_t {
   {
     std::lock_guard<std::mutex> lock(lock_);
 
-    //
-    // C++20 mechanism:
-    // return std::vector<int>{ std::views::keys(local_rank_map_).begin(),
-    //                          std::views::keys(local_rank_map_).end() };
-    //  Would need a bit more complicated to handle remote_rank_map_ also
-    //
-    std::vector<int> registered_ranks(local_rank_map_.size());
+    std::vector<int> registered_ranks(local_rank_map_.size() + remote_rank_set_.size());
     std::transform(
       local_rank_map_.begin(), local_rank_map_.end(), registered_ranks.begin(), [](auto pair) {
         return pair.first;
       });
+#if 0
+    std::transform(remote_rank_set_.begin(),
+                   remote_rank_set_.end(),
+                   registered_ranks.begin() + local_rank_map_.size(),
+                   [](auto pair) { return pair.first; });
+#else
+    std::copy(remote_rank_set_.begin(),
+              remote_rank_set_.end(),
+              registered_ranks.begin() + local_rank_map_.size());
+#endif
 
+    std::sort(registered_ranks.begin(), registered_ranks.end());
     return registered_ranks;
   }
 
  private:
   mutable std::mutex lock_{};
   std::map<int, rmm::cuda_device_id> local_rank_map_{};
+  std::set<int> remote_rank_set_{};
   std::map<int, std::shared_ptr<rmm::mr::device_memory_resource>> per_device_rmm_resources_{};
 };
 
