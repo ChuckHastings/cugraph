@@ -54,7 +54,7 @@ int generic_ecg_test(vertex_t* h_src,
   TEST_ALWAYS_ASSERT(ret_code == CUGRAPH_SUCCESS, cugraph_error_message(ret_error));
 
   ret_code =
-    cugraph_ecg(p_handle, p_graph, minimum_weight, ensemble_size, FALSE, &p_result, &ret_error);
+    cugraph_legacy_ecg(p_handle, p_graph, minimum_weight, ensemble_size, FALSE, &p_result, &ret_error);
 
   TEST_ASSERT(test_ret_value, ret_code == CUGRAPH_SUCCESS, cugraph_error_message(ret_error));
   TEST_ALWAYS_ASSERT(ret_code == CUGRAPH_SUCCESS, "cugraph_ecg failed.");

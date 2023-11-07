@@ -249,7 +249,7 @@ ConfigureTest(LEIDEN_TEST community/leiden_test.cpp)
 
 ###################################################################################################
 # - ECG tests -------------------------------------------------------------------------------------
-ConfigureTest(ECG_TEST community/ecg_test.cpp)
+#ConfigureTest(ECG_TEST community/ecg_test.cpp)
 
 ###################################################################################################
 # - Balanced cut clustering tests -----------------------------------------------------------------
@@ -533,6 +533,10 @@ if(BUILD_CUGRAPH_MG_TESTS)
     ConfigureTestMG(MG_LEIDEN_TEST community/mg_leiden_test.cpp)
 
     ###############################################################################################
+    # - MG ECG tests --------------------------------------------------------------------------
+    #ConfigureTestMG(MG_ECG_TEST community/mg_ecg_test.cpp)
+
+    ###############################################################################################
     # - MG MIS tests ------------------------------------------------------------------------------
     ConfigureTestMG(MG_MIS_TEST community/mg_mis_test.cu)
 
@@ -676,6 +680,7 @@ if(BUILD_CUGRAPH_MG_TESTS)
     ConfigureCTestMG(MG_CAPI_TRIANGLE_COUNT_TEST c_api/mg_triangle_count_test.c)
     ConfigureCTestMG(MG_CAPI_LOUVAIN_TEST c_api/mg_louvain_test.c)
     ConfigureCTestMG(MG_CAPI_LEIDEN_TEST c_api/mg_leiden_test.c)
+    ConfigureCTestMG(MG_CAPI_ECG_TEST c_api/mg_ecg_test.c)
     ConfigureCTestMG(MG_CAPI_CORE_NUMBER_TEST c_api/mg_core_number_test.c)
     ConfigureCTestMG(MG_CAPI_SIMILARITY_TEST c_api/mg_similarity_test.c)
     ConfigureCTestMG(MG_CAPI_K_CORE_TEST c_api/mg_k_core_test.c)
@@ -733,6 +738,7 @@ ConfigureCTest(CAPI_RANDOM_WALKS_TEST c_api/sg_random_walks_test.c)
 ConfigureCTest(CAPI_TRIANGLE_COUNT_TEST c_api/triangle_count_test.c)
 ConfigureCTest(CAPI_LOUVAIN_TEST c_api/louvain_test.c)
 ConfigureCTest(CAPI_LEIDEN_TEST c_api/leiden_test.c)
+ConfigureCTest(CAPI_ECG_TEST c_api/ecg_test.c)
 ConfigureCTest(CAPI_LEGACY_SPECTRAL_TEST c_api/legacy_spectral_test.c)
 ConfigureCTest(CAPI_LEGACY_ECG_TEST c_api/legacy_ecg_test.c)
 ConfigureCTest(CAPI_CORE_NUMBER_TEST c_api/core_number_test.c)
