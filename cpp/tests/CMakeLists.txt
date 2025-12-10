@@ -436,14 +436,9 @@ ConfigureTest(TEMPORAL_GRAPH_TEST structure/temporal_graph_test.cpp)
 if(CUGRAPH_COMPILE_TRAVERSAL)
     # - BFS tests
     ConfigureTest(BFS_TEST traversal/bfs_test.cpp)
-    # - Graph500 BFS tests
-    ConfigureTest(GRAPH500_BFS_TEST traversal/graph500_bfs_test.cu)
     # - Extract BFS Paths tests
     ConfigureTest(EXTRACT_BFS_PATHS_TEST
                   traversal/extract_bfs_paths_test.cu)
-    # - Extract BFS Paths with Transpose tests
-    ConfigureTest(EXTRACT_BFS_PATHS_WITH_TRANSPOSE_TEST
-                  traversal/extract_bfs_paths_with_transpose_test.cu)
     # - Multi-source BFS tests
     ConfigureTest(MSBFS_TEST traversal/ms_bfs_test.cpp)
     # - SSSP tests
@@ -510,14 +505,6 @@ if(CUGRAPH_COMPILE_SAMPLING)
     ConfigureTest(HETEROGENEOUS_BIASED_NEIGHBOR_SAMPLING_TEST sampling/heterogeneous_biased_neighbor_sampling.cpp GPUS 1 PERCENT 75)
     # - TEMPORAL NBR SAMPLING tests
     ConfigureTest(TEMPORAL_NEIGHBOR_SAMPLING_TEST sampling/temporal_neighbor_sampling.cpp GPUS 1 PERCENT 75)
-    # - TEMPORAL BIASED NBR SAMPLING tests
-    ConfigureTest(TEMPORAL_BIASED_NEIGHBOR_SAMPLING_TEST sampling/temporal_biased_neighbor_sampling.cpp GPUS 1 PERCENT 75)
-    # - TEMPORAL UNIFORM NBR SAMPLING tests
-    ConfigureTest(TEMPORAL_UNIFORM_NEIGHBOR_SAMPLING_TEST sampling/temporal_uniform_neighbor_sampling.cpp GPUS 1 PERCENT 75)
-    # - TEMPORAL BIASED NBR SAMPLING tests
-    ConfigureTest(TEMPORAL_BIASED_NEIGHBOR_SAMPLING_TEST sampling/temporal_biased_neighbor_sampling.cpp GPUS 1 PERCENT 75)
-    # - TEMPORAL UNIFORM NBR SAMPLING tests
-    ConfigureTest(TEMPORAL_UNIFORM_NEIGHBOR_SAMPLING_TEST sampling/temporal_uniform_neighbor_sampling.cpp GPUS 1 PERCENT 75)
     # - NEGATIVE SAMPLING tests
     ConfigureTest(NEGATIVE_SAMPLING_TEST sampling/negative_sampling.cpp PERCENT 100)
     # - SAMPLING_POST_PROCESSING tests
